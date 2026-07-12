@@ -17,11 +17,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from control.mpc import NonlinearMPC  # noqa: E402
-from control.pid import CascadedPIDController, PotentialFieldAvoidance  # noqa: E402
-from dynamics import QuadrotorDynamics  # noqa: E402
-from sim import run_closed_loop  # noqa: E402
 from sim.courses import ALL_COURSES  # noqa: E402
+from sim.experiments import fly_course  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "results" / "raw"
@@ -29,38 +26,15 @@ FIGS = ROOT / "results" / "figures"
 RAW.mkdir(parents=True, exist_ok=True)
 FIGS.mkdir(parents=True, exist_ok=True)
 
-MODEL = QuadrotorDynamics()
-
-
-def make_controller(kind: str, course):
-    ref = course.make_reference()
-    if kind == "pid":
-        return CascadedPIDController(
-            avoidance=PotentialFieldAvoidance(obstacles=course.obstacles)
-        ), ref
-    return NonlinearMPC(reference=ref, obstacles=course.obstacles), ref
-
-
-def fly(kind: str, course):
-    ctrl, ref = make_controller(kind, course)
-    log = run_closed_loop(
-        ctrl, ref, MODEL.hover_state(course.start), course.t_final,
-        obstacles=course.obstacles,
-        # Body collision: center within drone_radius of an obstacle surface
-        collision_margin=MODEL.params.radius,
-    )
-    goal_err = float(np.linalg.norm(log.x[-1, :3] - course.goal))
-    success = (not log.collided) and goal_err < course.goal_tolerance
-    return log, goal_err, success
-
 
 def main():
     results = {}
     for cname, factory in ALL_COURSES.items():
         for kind in ("pid", "mpc"):
-            course = factory()  # fresh obstacles per run (movers are stateless
-            # in t, but keep runs independent anyway)
-            log, goal_err, success = fly(kind, course)
+            course = factory()
+            log, metrics = fly_course(kind, course)
+            goal_err = metrics["final_goal_err"]
+            success = metrics["success"]
             results[(cname, kind)] = (course, log, goal_err, success)
             solve = (np.array([i["solve_time"] for i in log.info])[2:] * 1e3
                      if kind == "mpc" else None)
