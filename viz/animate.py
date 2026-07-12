@@ -170,9 +170,19 @@ class CourseAnimator:
         self.fig.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=0.92,
                                  wspace=0.02)
         self.stride = frame_stride
-        self.n_frames = max(len(p.log.t) for p in self.panels) // frame_stride
-        self.dt_frame = (self.panels[0].log.t[1] - self.panels[0].log.t[0]) \
-            * frame_stride
+        dt_ctrl = self.panels[0].log.t[1] - self.panels[0].log.t[0]
+        # Stop shortly after the last drone stops moving — no point
+        # animating everyone hovering at the goal.
+        last_active = 0
+        for p in self.panels:
+            drift = np.linalg.norm(p.log.x[:, :3] - p.log.x[-1, :3], axis=1)
+            moving = np.flatnonzero(drift > 0.15)
+            last_active = max(last_active,
+                              moving[-1] if moving.size else len(p.log.t) - 1)
+        n_steps = min(max(len(p.log.t) for p in self.panels),
+                      last_active + int(1.5 / dt_ctrl))
+        self.n_frames = int(n_steps) // frame_stride
+        self.dt_frame = dt_ctrl * frame_stride
 
     def _draw_frame(self, f: int):
         for p in self.panels:
@@ -185,7 +195,7 @@ class CourseAnimator:
             interval=interval, blit=False, repeat=True)
         return self.anim
 
-    def save(self, path, fps: float | None = None):
+    def save(self, path, fps: float | None = None, dpi: int = 90):
         fps = fps or 1.0 / self.dt_frame
         self.animate(fps=fps)
         path = str(path)
@@ -193,7 +203,7 @@ class CourseAnimator:
             writer = animation.PillowWriter(fps=fps)
         else:
             writer = animation.FFMpegWriter(fps=fps, bitrate=2400)
-        self.anim.save(path, writer=writer, dpi=100)
+        self.anim.save(path, writer=writer, dpi=dpi)
 
     def show(self):
         self.animate()
