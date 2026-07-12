@@ -23,8 +23,10 @@ class PotentialFieldAvoidance:
         k_damp: float = 6.0,           # approach-damping gain
         max_accel: float = 12.0,       # m/s^2 cap on total avoidance accel
         eps: float = 0.05,             # m, keeps 1/d finite at contact
+        drone_radius: float = 0.30,    # field acts on body-surface distance
     ):
         self.obstacles = list(obstacles)
+        self.drone_radius = drone_radius
         self.d0 = influence_dist
         self.k_rep = k_rep
         self.k_tan = k_tan
@@ -41,7 +43,8 @@ class PotentialFieldAvoidance:
             dist_c = np.linalg.norm(delta)
             if dist_c < 1e-9:
                 continue
-            d = dist_c - ob.radius  # signed distance to surface
+            # Signed distance between body surface and obstacle surface
+            d = dist_c - ob.radius - self.drone_radius
             if d >= self.d0:
                 continue
             n = delta / dist_c  # unit vector away from obstacle

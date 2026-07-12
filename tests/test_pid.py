@@ -73,7 +73,8 @@ def test_static_obstacle_avoidance():
         ctrl, ref, MODEL.hover_state(position=start), t_final=10.0,
         obstacles=obstacles,
     )
-    assert log.min_clearance > 0.0, "PID baseline hit the obstacle"
+    # Body-safe: center stays at least a drone radius off the surface
+    assert log.min_clearance > MODEL.params.radius, "PID clipped the obstacle"
     assert np.linalg.norm(log.x[-1, IDX_POS] - goal) < 0.15
 
 

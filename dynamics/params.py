@@ -18,6 +18,9 @@ class QuadrotorParams:
         default_factory=lambda: np.diag([8.2e-3, 8.2e-3, 1.64e-2])
     )
     arm_length: float = 0.17             # m, rotor hub to center
+    # Collision sphere: prop tips + a little body. Anything closer than
+    # this to an obstacle surface is a physical collision.
+    radius: float = 0.30                 # m
     # Rotor drag torque per unit thrust (yaw moment coefficient), m
     torque_coeff: float = 0.016
     # Per-motor thrust limits (N). T/W = 4*6/(1*9.81) ~ 2.4
